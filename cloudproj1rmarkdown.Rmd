@@ -1,0 +1,264 @@
+---
+title: "cloudproject1"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+MY CODE:
+
+
+```{r}
+library(dplyr)
+library(readr)
+library(tidyr)
+library(ggplot2)
+library(eeptools)
+library(pROC)
+library(ggpubr)
+library(factoextra)
+```
+
+```{r}
+patients = read.csv(file = "C:/Users/Shruti/Desktop/MS/Courses/CloudComputingsem2/project/patients.csv", header = TRUE)
+
+glimpse(patients)
+
+#Assign current date:
+
+patients$DEATHDATE[patients$DEATHDATE == ""] <- "2021-04-30"
+glimpse(patients$DEATHDATE)
+
+patients$DEATHDATE <- as.Date(patients$DEATHDATE)
+patients$BIRTHDATE <- as.Date(patients$BIRTHDATE)
+
+```
+
+
+```{r}
+patients$age = as.numeric(patients$DEATHDATE - patients$BIRTHDATE, "%y-%m-%d", units="days")
+
+#glimpse(medications) #in days
+
+newpatdata <- na.omit(patients)
+newpatdata[newpatdata$age >= 0, ]
+glimpse(newpatdata)
+
+newpatdata$years = lubridate::time_length(difftime(newpatdata$DEATHDATE,newpatdata$BIRTHDATE), "years")
+
+```
+
+```{r}
+
+medications = read.csv(file = "C:/Users/Shruti/Desktop/MS/Courses/CloudComputingsem2/project/medications.csv", header = TRUE)
+
+glimpse(medications)
+
+```
+
+
+```{r}
+
+medications$START <- as.Date(medications$START, "%m/%d/%y")
+medications$STOP <- as.Date(medications$STOP, "%m/%d/%y")
+
+medications$DURATION = as.numeric(medications$STOP - medications$START, "%m/%d/%y", units="days")
+
+#glimpse(medications) #in days
+
+newmeddata <- na.omit(medications)
+newmeddata <- newmeddata[newmeddata$DURATION > 0,]
+
+glimpse(newmeddata)
+
+
+```
+
+
+```{r}
+px1 = read.csv(file = "C:/Users/Shruti/Desktop/MS/Courses/CloudComputingsem2/project/patients.csv", header = TRUE)
+#px1 <- na.omit(px1)
+
+glimpse(px1)
+
+```
+```{r}
+
+#ALL DEATH OBSERVATIOS
+px2 <- px1[px1$DEATHDATE != "", ]
+
+glimpse(px2)
+
+```
+```{r}
+
+#px1$age = as.numeric(px1$DEATHDATE - px1$BIRTHDATE, "%y-%m-%d", units="days")
+px2$years = lubridate::time_length(difftime(px2$DEATHDATE , px2$BIRTHDATE), "years")
+
+glimpse(px2)
+
+```
+
+```{r}
+
+#Comparing age and gender of recorded deaths.
+
+ggplot(data = px2,
+       mapping = aes(x = GENDER ,
+                     y = years)) +
+    geom_boxplot()
+
+```
+
+```{r}
+px3 <- px1
+px3$DEATHDATE[px3$DEATHDATE == ""] <- "2021-04-30"
+
+px3$years = lubridate::time_length(difftime(px3$DEATHDATE , px3$BIRTHDATE), "years")
+
+#plotting all patients including still alive.
+
+
+ggplot(data = px3,
+       mapping = aes(x = GENDER ,
+                     y = years)) +
+    geom_boxplot()
+
+```
+
+
+
+```{r}
+ggplot(data = px2,
+       mapping = aes(x = RACE ,
+                     y = years),GENDER) +
+    geom_boxplot()+aes(fill=RACE)
+
+```
+```{r}
+p <- qplot(interaction(px2$GENDER,px2$RACE), px2$years, data=px2, geom="boxplot")
+p + aes(fill=RACE)
+```
+```{r}
+
+boxplot( px2$years ~ interaction(px2$RACE,px2$GENDER), data=px2)
+boxplot( px3$years ~ interaction(px3$RACE,px3$GENDER), data=px3)
+```
+
+
+```{r}
+#combining med data rows based on patient id.
+glimpse(newmeddata)
+mx1 <- reshape(newmeddata, idvar=c("PATIENT"), timevar = "DESCRIPTION", direction="wide")
+glimpse(mx1)
+
+```
+```{r}
+#total costs for each patient:
+  
+mx2 <- with(newmeddata, aggregate(list(y = TOTALCOST, z = DURATION), list(PATIENT), sum))
+glimpse(mx2)
+
+```
+
+```{r}
+#reshape(d, idvar=c("ID", "Study", "Insect"), timevar = "MType", direction="wide")
+#reshape(dat1, idvar = "name", timevar = "numbers", direction = "wide")
+
+       #reshape(newmeddata, idvar = "PATIENT", timevar = "DESCRIPTION", direction = "wide")   Hydroxychloroquine Sulfate 200 MG Oral Tablet
+
+mx3 <- reshape(newmeddata, idvar = "PATIENT", timevar = "DESCRIPTION", direction = "wide")
+```
+```{r}
+#based on medicines:
+#Hydroxychloroquine Sulfate 200 MG Oral Tablet
+mm11 <- ifelse((newmeddata$DESCRIPTION == "Hydroxychloroquine Sulfate 200 MG Oral Tablet")|(newmeddata$DESCRIPTION == "baricitinib 2 MG Oral Tablet")|(newmeddata$DESCRIPTION == "20 ML tocilizumab 20 MG/ML Injection")|(newmeddata$DESCRIPTION == "chloroquine phosphate 500 MG Oral Tablet")|(newmeddata$DESCRIPTION == "remdesivir 100 MG Injection"), "1","0")
+#mm1 <- newmeddata[newmeddata$DESCRIPTION == "Hydroxychloroquine Sulfate 200 MG Oral Tablet", ]
+glimpse(mm1)
+```
+```{r}
+newmeddata$medcheck <- ifelse((newmeddata$DESCRIPTION == "Hydroxychloroquine Sulfate 200 MG Oral Tablet")|(newmeddata$DESCRIPTION == "baricitinib 2 MG Oral Tablet")|(newmeddata$DESCRIPTION == "20 ML tocilizumab 20 MG/ML Injection")|(newmeddata$DESCRIPTION == "chloroquine phosphate 500 MG Oral Tablet")|(newmeddata$DESCRIPTION == "remdesivir 100 MG Injection"), "1","0")
+```
+```{r}
+kmx1 <- newmeddata[8:12]
+
+kmx2 <- newmeddata[14]
+
+kmx3 <- cbind(kmx1,kmx2)
+```
+
+```{r}
+
+set.seed(123)
+
+res.km <- kmeans(scale(kmx3), 6, nstart = 25)
+# K-means clusters showing the group of each individuals
+res.km$cluster
+
+```
+
+```{r}
+fviz_cluster(res.km, data = kmx3,
+             palette = c("#2E9FDF", "#00AFBB", "#E7B800","#2E9FDF", "#00AFBB", "#E7B800"), 
+             geom = "point",
+             ellipse.type = "convex", 
+             ggtheme = theme_bw()
+             )
+```
+
+```{r}
+# Dimension reduction using PCA
+res.pca <- prcomp(kmx3,  scale = TRUE)
+# Coordinates of individuals
+ind.coord <- as.data.frame(get_pca_ind(res.pca)$coord)
+# Add clusters obtained using the K-means algorithm
+ind.coord$cluster <- factor(res.km$cluster)
+# Add Species groups from the original data sett
+ind.coord$newmed <- newmeddata$DESCRIPTION
+# Data inspection
+head(ind.coord)
+```
+```{r}
+eigenvalue <- round(get_eigenvalue(res.pca), 1)
+variance.percent <- eigenvalue$variance.percent
+head(eigenvalue)
+```
+
+```{r}
+ggscatter(
+  ind.coord, x = "Dim.1", y = "Dim.2", 
+  color = "cluster", palette = "npg", ellipse = TRUE, ellipse.type = "convex",
+  shape = "newmed", size = 1.5,  legend = "right", ggtheme = theme_bw(),
+  xlab = paste0("Dim 1 (", variance.percent[1], "% )" ),
+  ylab = paste0("Dim 2 (", variance.percent[2], "% )" )
+) +
+  stat_mean(aes(color = cluster), size = 4)
+```
+
+
+
+
+```{r}
+b1 = read.csv(file = "C:/Users/Shruti/Desktop/MS/Courses/CloudComputingsem2/project/modeltypebased.csv", header = TRUE)
+glimpse(b1)
+
+b2 = read.csv(file = "C:/Users/Shruti/Desktop/MS/Courses/CloudComputingsem2/project/featurebased.csv", header = TRUE)
+glimpse(b2)
+
+b3 = read.csv(file = "C:/Users/Shruti/Desktop/MS/Courses/CloudComputingsem2/project/observationbased.csv", header = TRUE)
+glimpse(b3)
+
+b4 = read.csv(file = "C:/Users/Shruti/Desktop/MS/Courses/CloudComputingsem2/project/medbased.csv", header = TRUE)
+glimpse(b4)
+```
+
+
+
